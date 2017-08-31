@@ -16,11 +16,13 @@ class Evaluator:
 	def confusionMatrix(self):
 
 		self.confusion_matrix = confusion_matrix(self.ytest, self.y_pred)
-
+		#print self.ytest
+		#print self.y_pred
+	"""
 	def getPerformanceMetrics(self):
 
 		self.confusionMatrix()
-
+		
 		accuracy = (
 					float((self.confusion_matrix[0][0]+self.confusion_matrix[1][1]))/
 					(self.confusion_matrix[0][0]+self.confusion_matrix[0][1]+self.confusion_matrix[1][0]+self.confusion_matrix[1][1])
@@ -39,6 +41,25 @@ class Evaluator:
 			)
 
 		return accuracy, recall, precision, specificity
+	"""
+	
+
+	def getPerformanceMetrics(self):
+		
+		flag = 0
+		for i in range(len(self.ytest)):
+			if self.ytest[i] != self.y_pred[i]:
+				flag = 1
+				break
+				
+		if flag == 0:
+			if -1 in self.ytest:
+				return len(self.ytest), 0, 0, 0
+			else:
+				return 0, 0, len(self.ytest), 0
+				
+		self.confusionMatrix()
+		return self.confusion_matrix[0][0],self.confusion_matrix[1][0],self.confusion_matrix[1][1],self.confusion_matrix[0][1]
 
 	def drawROC(self):
 	

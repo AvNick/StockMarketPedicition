@@ -10,7 +10,7 @@ class DataPreprocessor:
 
 		s0 = x[0]
 		smoothed_statistic = [s0]
-		n = x.shape[0] 
+		n = x.shape[0]
 		for i in xrange(1,n):
 			s1 = alpha * x[i] + (1 - alpha) * s0
 			smoothed_statistic.append(s1)

@@ -8,37 +8,42 @@ from TechnicalAnalysis import *
 import os
 from datetime import datetime
 from matplotlib import pyplot as plt
-from DataPreprocessor import DataPreprocessor	
+from DataPreprocessor import DataPreprocessor
 from ModelEvaluation import Evaluator
-from multiprocessing import Process 
+from multiprocessing import Process
 import matplotlib.patches as mpatches
 import pandas as pd
 #from sklearn.model_selection import cross_val_score
 from sklearn.cross_validation import cross_val_score
+from sklearn.metrics import brier_score_loss
+from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_curve
 
 import xgboost as xgb
 from xgboost.sklearn import XGBClassifier
 import random
 
+np.set_printoptions(precision=2)
+
 def getPerformanceStats(TP, TN, FP, FN):
 	#print TP, TN, FP, FN
 	accuracy = ((TP + TN)/(TP + TN + FP + FN))*100
-	
+
 	try:
 		recall =  TP/(TP+FN)
 	except:
 		recall = -999
-		
+
 	try:
 		precision = TP/(TP + FP)
 	except:
 		precision = -999
-		
+
 	try:
 		specificity = TN/(TN + FP)
 	except:
 		specificity = -999
-		
+
 	try:
 		fscore = 2*(precision * recall)/(precision + recall)
 	except:
@@ -61,11 +66,11 @@ def getData(CSVFile):
 
 def getTechnicalIndicators(X,d):
 
-	RSI = getRSI(X[:,3]) 
+	RSI = getRSI(X[:,3])
 	StochasticOscillator = getStochasticOscillator(X)
 	Williams = getWilliams(X)
 
-	
+
 	MACD = getMACD(X[:,3])
 	PROC = getPriceRateOfChange(X[:,3],d)
 	OBV = getOnBalanceVolume(X)
@@ -84,7 +89,7 @@ def getTechnicalIndicators(X,d):
 	PROC = PROC[len(PROC) - min_len:]
 	OBV = OBV[len(OBV) - min_len:]
 
-	
+
 	feature_matrix = np.c_[RSI[:,0],
 						   StochasticOscillator[:,0],
 						   Williams[:,0],
@@ -97,7 +102,7 @@ def getTechnicalIndicators(X,d):
 def prepareData(X,close,date,d):
 
 	feature_matrix = getTechnicalIndicators(X,d)
-	
+
 	number_of_samples = feature_matrix.shape[0]
 	date = date[len(date) - number_of_samples:]
 	close = close[len(close) - number_of_samples:]
@@ -120,9 +125,9 @@ def prepareData(X,close,date,d):
 
 	feature_matrix_1 = feature_matrix_1[:, range(6)]
 
-	return feature_matrix_1,y,feature_matrix_2[:,range(6)],closeplot,date 
+	return feature_matrix_1,y,feature_matrix_2[:,range(6)],closeplot,date
 
-	
+
 
 def plotTradingStrategy(model, xplot, closeplot, Trading_Day,date):
 
@@ -133,12 +138,12 @@ def plotTradingStrategy(model, xplot, closeplot, Trading_Day,date):
 	x = [xplot[i] for i in xrange(0,len(xplot),Trading_Day)]
 	y = [closeplot[i] for i in xrange(0, len(closeplot),Trading_Day)]
 	y_pred = model.predict(x)
-   
-   	c = [colorMap[y_pred[i]] for i in xrange(len(y_pred))]
 
-   	df = pd.DataFrame(np.c_[[ i+1 for i in xrange(0, len(xplot),Trading_Day)], x, y, [tradeMap[y_pred[i]] for i in xrange(len(y_pred)) ]],
+	c = [colorMap[y_pred[i]] for i in xrange(len(y_pred))]
+
+	df = pd.DataFrame(np.c_[[ i+1 for i in xrange(0, len(xplot),Trading_Day)], x, y, [tradeMap[y_pred[i]] for i in xrange(len(y_pred)) ]],
    			columns = ["Day","RSI","Stochastic Oscillator","Williams","MACD","Price Rate Of Change","On Balance Volume","Close","Buy/Sell"])
-   	df.to_csv("AAPLBuySellTradePoints.csv",index = False)
+	df.to_csv("AAPLBuySellTradePoints.csv",index = False)
 
 
 	plt.scatter([i for i in xrange(0,len(xplot),Trading_Day)],y, c = c)
@@ -152,11 +157,11 @@ def plotTradingStrategy(model, xplot, closeplot, Trading_Day,date):
 	plt.savefig("TradingStrategy.png")
 	plt.show(block = False)
 
-	
+
 def main(stock_symbol,Trading_Day, classifier_choice):
 
 	# fetcher = DataFetcher()
-	
+
 	# fetch_result = fetcher.getHistoricalData(stock_symbol)
 	# if fetch_result == -1:
 	# 	raise Exception("NO INTERNET CONNECTIVITY OR INVALID STOCK SYMBOL")
@@ -164,9 +169,9 @@ def main(stock_symbol,Trading_Day, classifier_choice):
 	dir_name = os.path.dirname(os.path.abspath(__file__))
 	filename = stock_symbol+".csv"
 	CSVFile = os.path.join(dir_name,"Dataset",filename)
-	
+
 	ohclv_data, close, date= getData(CSVFile)
-	
+
 	#current_data = regression(ohclv_data)
 	#ohclv_data.append(current_data)
 
@@ -181,7 +186,10 @@ def main(stock_symbol,Trading_Day, classifier_choice):
 	FP = 0.0
 	FN = 0.0
 	NUM_ITER = 10
-	
+	pred_prob = []
+	true_lbls = []
+	scr_list = []
+
 	for iteration in range (0, NUM_ITER):
 		Xtrain,Xtest,ytrain,ytest = train_test_split(X,y, random_state = 0)
 		#dummies, inserted by Suryo:
@@ -200,18 +208,17 @@ def main(stock_symbol,Trading_Day, classifier_choice):
 			model.fit(Xtrain, ytrain)
 			y_pred = model.predict(Xtest)
 
-		
 		elif classifier_choice == 'XGB':
 			training_data = np.matrix(Xtrain)
 			test_data = np.matrix(Xtest)
 
 			param = {'learning_rate':0.00001,
 			'n_estimators':10000,
-			'max_depth':20, 
+			'max_depth':20,
 			'min_child_weight':1,
-			'eta':0.0001, 
-			'silent':1, 
-			'objective':'multi:softmax', 
+			'eta':0.0001,
+			'silent':1,
+			'objective':'multi:softmax',
 			'num_class':2,
 			'subsample':0.6,
 			'gamma':0}
@@ -219,33 +226,76 @@ def main(stock_symbol,Trading_Day, classifier_choice):
 
 			"""EDIT THIS"""
 			#BRING IN THE MACHINE LEARNING SWAG RIGHT HERE
-		
+
 			#labels_training = [x+1 for x in ytrain]
 			for i in range(0, len(ytrain)):
 				if ytrain[i] == -1:
 					ytrain[i] = 0
-		
+
 			#xgb_train = xgb.DMatrix(training_data, labels_training)
 			xgb_train = xgb.DMatrix(training_data, ytrain)
 			xgb_test = xgb.DMatrix(test_data)
-			model = xgb.train(param, xgb_train, num_round)
+			#model = xgb.train(param, xgb_train, num_round)
+			model = xgb.XGBClassifier()
+			#print('ok')
+			model.fit(Xtrain, ytrain)
+			#model.fit(xgb_train, xgb_test)
 			#labels_out = model.predict(xgb_test)
-			y_pred = model.predict(xgb_test)
+			y_pred = model.predict(Xtest)
 			#y_pred = [x-1 for x in labels_out]
 			for i in range(0, len(y_pred)):
 				if y_pred[i] == 0:
 					y_pred[i] = -1
-		
+
 		Eval = Evaluator(Xtest,ytest,y_pred,model)
 		tn, fn, tp, fp = Eval.getPerformanceMetrics()
 		TN += tn
 		FN += fn
 		TP += tp
-		FP += fp	
-	
+		FP += fp
+		#================================
+		#y_score = model.fit(Xtrain, ytrain).decision_function(test_data)
+		y_prob = model.predict_proba(Xtest)
+		#print(y_prob)
+		for i in range(len(y_prob)):
+			if ytest[i] == -1.0:
+				true_lbls.append(0)
+			else:
+				true_lbls.append(1)
+			pred_prob.append(y_prob[i][1])
+			#scr_list.append(y_score[i])
+
 	accuracy, recall, precision, specificity, fscore = getPerformanceStats(TP, TN, FP, FN)
-	print stock_symbol, '&', Trading_Day, '&', accuracy, '&', recall, '&', precision, '&', specificity, '&', fscore, '\\\\'
-	
+	for i in range(len(ytest)):
+		if ytest[i] == -1.0:
+			ytest[i] = 0
+		if y_pred[i] == -1.0:
+			y_pred[i] = 0
+	auc = roc_auc_score(true_lbls,pred_prob)
+	fpr, tpr, thresholds = roc_curve(true_lbls, pred_prob, pos_label=1)
+	#print(fpr)
+	#print(tpr)
+	plt.figure()
+	lw = 2
+	plt.plot(fpr, tpr, color='darkorange',
+         lw=lw, label='ROC curve (area = %0.2f)' % auc)
+	#plt.plot(fpr, tpr, color='darkorange')
+	plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
+	plt.xlim([0.0, 1.0])
+	plt.ylim([0.0, 1.05])
+	plt.xlabel('False Positive Rate')
+	plt.ylabel('True Positive Rate')
+	plt.title(str(stock_symbol)+'-'+str(Trading_Day)+' day'+'-'+str(classifier_choice))
+	plt.legend(loc="lower right")
+	plt.savefig('rocs/'+str(stock_symbol)+'-'+str(Trading_Day)+'-'+str(classifier_choice)+'.png')
+	plt.clf()
+
+	b_score = brier_score_loss(ytest,y_pred)
+
+	print(stock_symbol, '&', Trading_Day, '&', accuracy, '&', recall, '&',
+			precision, '&', specificity, '&', fscore, '&', '%0.2f' % b_score,
+			'&', '%0.2f' % auc, '\\\\')
+
 	"""
 	print ""
 	print "Accuracy:",accuracy
@@ -253,7 +303,7 @@ def main(stock_symbol,Trading_Day, classifier_choice):
 	print "Precision:",precision
 	print "Specificity:",specificity
 	print "F-Score:",fscore
-	
+
 	Eval.plotClassificationResult()
 	Eval.drawROC()
 	plotTradingStrategy(model,xplot,closeplot,Trading_Day,dateplot)
@@ -267,7 +317,7 @@ def main(stock_symbol,Trading_Day, classifier_choice):
 	# print "LOL"
 	# p.join()
 
-	
+
 """
 stock_symbol = raw_input("Enter the stock_symbol (AAPL, AMS, AMZN, FB, MSFT, NKE, SNE, TATA, TWTR, TYO): ")
 Trading_Day = input("Enter the trading window: ")
@@ -279,28 +329,28 @@ if classifier_choice not in ['RF', 'XGB']:
 main(stock_symbol.upper(),Trading_Day, classifier_choice.upper())
 
 """
-#COMPANIES = ['AAPL', 'AMS', 'AMZN', 'FB', 'MSFT', 'NKE', 'SNE', 'TATA', 'TWTR', 'TYO']
-COMPANIES = ['novartis', 'cipla', 'pfizer', 'roche']
+COMPANIES = ['AAPL', 'AMS', 'AMZN', 'FB', 'MSFT', 'NKE', 'SNE', 'TATA', 'TWTR', 'TYO']
+#COMPANIES = ['novartis', 'cipla', 'pfizer', 'roche']
 #COMPANIES = ['ROG', 'NOVN', 'PFE', 'CIPLA']
-#TRADING_BINS = [3, 5, 10, 15, 30, 60, 90, 120, 150, 270, 300, 365]
+#TRADING_BINS = [3, 5, 10, 15, 30, 60, 90, 120, 150, 270, 300, 365, 730, 1000]
+#TRADING_BINS = [2000]
 TRADING_BINS = [3, 5, 10, 15, 30, 60, 90]
 #TRADING_BINS = [3, 5, 10, 15, 30, 60]
 #TRADING_BINS = [90]
 CLASSIFIERS = ['RF', 'XGB']
 #CLASSIFIERS = ['XGB']
+#COMPANIES = ['AAPL', 'AMS', 'AMZN', 'FB', 'MSFT',
+#			'NKE', 'SNE', 'TATA', 'TWTR', 'TYO',
+#			'novartis', 'cipla', 'pfizer', 'roche']
+#CLASSIFIERS = ['XGB']
 
 for classifier_choice in CLASSIFIERS:
-	print "---------------------"
-	print""
-	print 'RESULTS FOR', classifier_choice
-	print""
-	
+	print("---------------------")
+	print("")
+	print('RESULTS FOR', classifier_choice)
+	print("")
+
 	for stock_symbol in COMPANIES:
 		for Trading_Day in TRADING_BINS:
 			#main(stock_symbol.upper(),Trading_Day, classifier_choice.upper())
 			main(stock_symbol,Trading_Day, classifier_choice.upper())
-
-	
-	
-
-

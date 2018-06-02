@@ -22,7 +22,7 @@ class Evaluator:
 	def getPerformanceMetrics(self):
 
 		self.confusionMatrix()
-		
+
 		accuracy = (
 					float((self.confusion_matrix[0][0]+self.confusion_matrix[1][1]))/
 					(self.confusion_matrix[0][0]+self.confusion_matrix[0][1]+self.confusion_matrix[1][0]+self.confusion_matrix[1][1])
@@ -42,35 +42,35 @@ class Evaluator:
 
 		return accuracy, recall, precision, specificity
 	"""
-	
+
 
 	def getPerformanceMetrics(self):
-		
+
 		flag = 0
 		for i in range(len(self.ytest)):
 			if self.ytest[i] != self.y_pred[i]:
 				flag = 1
 				break
-				
+
 		if flag == 0:
 			if -1 in self.ytest:
 				return len(self.ytest), 0, 0, 0
 			else:
 				return 0, 0, len(self.ytest), 0
-				
+
 		self.confusionMatrix()
 		return self.confusion_matrix[0][0],self.confusion_matrix[1][0],self.confusion_matrix[1][1],self.confusion_matrix[0][1]
 
 	def drawROC(self):
-	
+
 		base_dir = os.path.dirname
 		abspath = os.path.abspath
 		dir_name =  base_dir(base_dir(base_dir(abspath(__file__))))
 
 		y_prob = self.model.predict_proba(self.xtest)
-	
+
 		true_probability_estimate = y_prob[:,1]
-	
+
 		fpr,tpr,threshold = roc_curve(self.ytest,true_probability_estimate)
 		area = auc(fpr,tpr)
 		plt.figure()
@@ -80,15 +80,15 @@ class Evaluator:
 		plt.ylabel("True Positive Rate")
 		plt.legend(loc = "lower right")
 		plt.show(block = False)
-		
+
 		#plt.savefig(savepath)
 		#plt.close()
 
 	def oob_vs_n_trees(self,max_trees,Xtrain, ytrain):
 
 		# First set up the figure, the axis, and the plot element we want to animate
-		print ""
-		print "Number of Trees\t\tOOB Error Rate"
+		print("")
+		print("Number of Trees\t\tOOB Error Rate")
 		fig = plt.figure()
 		ax = plt.axes(xlim=(0, max_trees), ylim=(0,1))
 		line, = ax.plot([], [], lw=2)
@@ -102,12 +102,12 @@ class Evaluator:
 		oob_errors = []
 		# animation function.  This is called sequentially
 		def animate(i):
-			
+
 			model = RandomForestClassifier(warm_start = True, oob_score = True, n_estimators = i)
 			model.fit(Xtrain,ytrain)
 			oob_error = 1 - model.oob_score_
 			oob_errors.append(oob_error)
-			print "{}\t\t\t{}".format(i,oob_error)
+			print("{}\t\t\t{}".format(i,oob_error))
 
 			line.set_data(number_of_trees[:len(oob_errors)], oob_errors)
 			return line,
@@ -117,20 +117,20 @@ class Evaluator:
 		plt.xlabel("Number of trees")
 		plt.ylabel("OOB error")
 		plt.show()
-		
 
 
 
-	
+
+
 		# for i in xrange(2,max_trees + 1):
-		# 	model = RandomForestClassifier(warm_start = True, 
-		# 		oob_score = True, 
+		# 	model = RandomForestClassifier(warm_start = True,
+		# 		oob_score = True,
 		# 		n_estimators = i)
 		# 	model.fit(Xtrain,ytrain)
 		# 	oob_error = 1 - model.oob_score_
 		# 	oob_errors.append(oob_error)
 		# 	print i,oob_error
-	
+
 
 	def plotClassificationResult(self):
 		self.confusionMatrix()
@@ -141,7 +141,3 @@ class Evaluator:
 		plt.bar(x,self.confusion_matrix.reshape(-1), color= np.random.random((4,3)))
 		plt.xticks([i + 3.0 for i in xrange(4)],xlabel)
 		plt.show(block = False)
-
-
-
-

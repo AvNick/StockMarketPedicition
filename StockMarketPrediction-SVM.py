@@ -206,56 +206,12 @@ def main(stock_symbol,Trading_Day, classifier_choice):
 
 		if classifier_choice == 'RF':
 			#model = RandomForestClassifier(n_estimators = 100,criterion = "gini", random_state = random.randint(1,12345678))
-			model = SVC(kernel='linear', tol=0.01, max_iter=1000)
-			"""
-			scores = cross_val_score(model, Xtrain, ytrain, cv = 5)
-			print set(ytrain)
-			print "Cross Validation scores"
-			for i, score in enumerate(scores):
-				print "Validation Set {} score: {}".format(i, score)
-			"""
+			model = SVC(kernel='rbf', tol=0.01, max_iter=50000, probability=True)
+
 			model.fit(Xtrain, ytrain)
 			print('we here', stock_symbol)
 			y_pred = model.predict(Xtest)
 
-		elif classifier_choice == 'XGB':
-			training_data = np.matrix(Xtrain)
-			test_data = np.matrix(Xtest)
-
-			param = {'learning_rate':0.00001,
-			'n_estimators':100,
-			'max_depth':20,
-			'min_child_weight':1,
-			'eta':0.0001,
-			'silent':1,
-			'objective':'multi:softmax',
-			'num_class':2,
-			'subsample':0.6,
-			'gamma':0}
-			num_round = 25
-
-			"""EDIT THIS"""
-			#BRING IN THE MACHINE LEARNING SWAG RIGHT HERE
-
-			#labels_training = [x+1 for x in ytrain]
-			for i in range(0, len(ytrain)):
-				if ytrain[i] == -1:
-					ytrain[i] = 0
-
-			#xgb_train = xgb.DMatrix(training_data, labels_training)
-			xgb_train = xgb.DMatrix(training_data, ytrain)
-			xgb_test = xgb.DMatrix(test_data)
-			#model = xgb.train(param, xgb_train, num_round)
-			model = xgb.XGBClassifier()
-			#print('ok')
-			model.fit(Xtrain, ytrain)
-			#model.fit(xgb_train, xgb_test)
-			#labels_out = model.predict(xgb_test)
-			y_pred = model.predict(Xtest)
-			#y_pred = [x-1 for x in labels_out]
-			for i in range(0, len(y_pred)):
-				if y_pred[i] == 0:
-					y_pred[i] = -1
 
 		Eval = Evaluator(Xtest,ytest,y_pred,model)
 		tn, fn, tp, fp = Eval.getPerformanceMetrics()
@@ -299,9 +255,9 @@ def main(stock_symbol,Trading_Day, classifier_choice):
 		plt.ylim([0.0, 1.05])
 		plt.xlabel('False Positive Rate')
 		plt.ylabel('True Positive Rate')
-		plt.title(str(stock_symbol)+'-'+str(Trading_Day)+' day'+'-'+str(classifier_choice))
+		plt.title(str(stock_symbol)+'-'+str(Trading_Day)+' day-SVM')
 		plt.legend(loc="lower right")
-		plt.savefig('rocs/'+str(stock_symbol)+'-'+str(Trading_Day)+'-'+str(classifier_choice)+'.png')
+		plt.savefig('rocs/'+str(stock_symbol)+'-'+str(Trading_Day)+'-'+'SVM.png')
 		plt.clf()
 	except:
 		"Can't plot ROC"

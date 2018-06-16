@@ -18,7 +18,7 @@ from sklearn.cross_validation import cross_val_score
 from sklearn.metrics import brier_score_loss
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import roc_curve
-from sklearn.svm import SVC
+
 import xgboost as xgb
 from xgboost.sklearn import XGBClassifier
 import random
@@ -36,8 +36,6 @@ def getPerformanceStats(TP, TN, FP, FN):
 
 	try:
 		precision = TP/(TP + FP)
-		print(TP)
-		print(FP)
 	except:
 		precision = -999
 
@@ -137,52 +135,36 @@ def plotTradingStrategy(model, xplot, closeplot, Trading_Day,date):
 	tradeMap = {-1.0:"Sell",1.0:"Buy",0.0:"Buy"}
 	plt.figure()
 	plt.plot(closeplot, c = "g")
-	#x = [xplot[i] for i in xrange(0,len(xplot),Trading_Day)]
-	#y = [closeplot[i] for i in xrange(0, len(closeplot),Trading_Day)]
-	x = [xplot[i] for i in range(0,len(xplot),Trading_Day)]
-	y = [closeplot[i] for i in range(0, len(closeplot),Trading_Day)]
+	x = [xplot[i] for i in xrange(0,len(xplot),Trading_Day)]
+	y = [closeplot[i] for i in xrange(0, len(closeplot),Trading_Day)]
 	y_pred = model.predict(x)
 
-	#c = [colorMap[y_pred[i]] for i in xrange(len(y_pred))]
-	c = [colorMap[y_pred[i]] for i in range(len(y_pred))]
+	c = [colorMap[y_pred[i]] for i in xrange(len(y_pred))]
 
-	#df = pd.DataFrame(np.c_[[ i+1 for i in xrange(0, len(xplot),Trading_Day)], x, y, [tradeMap[y_pred[i]] for i in xrange(len(y_pred)) ]],
-	df = pd.DataFrame(np.c_[[ i+1 for i in range(0, len(xplot),Trading_Day)], x, y, [tradeMap[y_pred[i]] for i in range(len(y_pred)) ]],
+	df = pd.DataFrame(np.c_[[ i+1 for i in xrange(0, len(xplot),Trading_Day)], x, y, [tradeMap[y_pred[i]] for i in xrange(len(y_pred)) ]],
    			columns = ["Day","RSI","Stochastic Oscillator","Williams","MACD","Price Rate Of Change","On Balance Volume","Close","Buy/Sell"])
 	df.to_csv("AAPLBuySellTradePoints.csv",index = False)
 
 
-	#plt.scatter([i for i in xrange(0,len(xplot),Trading_Day)],y, c = c)
-	plt.scatter([i for i in range(0,len(xplot),Trading_Day)],y, c = c)
+	plt.scatter([i for i in xrange(0,len(xplot),Trading_Day)],y, c = c)
 	#plt.xticks([i for i in xrange(0,len(xplot),Trading_Day)],[date[i] for i in xrange(0,len(xplot),Trading_Day)])
 	red_patch = mpatches.Patch(color='red', label='Sell')
 	blue_patch = mpatches.Patch(color = "blue", label = "Buy")
 	plt.legend(handles = [red_patch,blue_patch])
 	plt.xlabel("Time")
 	plt.ylabel("Closing price")
-	#plt.title("Trading strategy for {} days trading window".format(Trading_Day))
-	plt.title("Trading indications for {} days trading window".format(Trading_Day))
+	plt.title("Trading strategy for {} days trading window".format(Trading_Day))
 	plt.savefig("TradingStrategy.png")
 	plt.show(block = False)
 
 
 def main(stock_symbol,Trading_Day, classifier_choice):
 
-	# fetcher = DataFetcher()
-
-	# fetch_result = fetcher.getHistoricalData(stock_symbol)
-	# if fetch_result == -1:
-	# 	raise Exception("NO INTERNET CONNECTIVITY OR INVALID STOCK SYMBOL")
-
 	dir_name = os.path.dirname(os.path.abspath(__file__))
 	filename = stock_symbol+".csv"
 	CSVFile = os.path.join(dir_name,"Dataset",filename)
 
 	ohclv_data, close, date= getData(CSVFile)
-
-	#current_data = regression(ohclv_data)
-	#ohclv_data.append(current_data)
-
 	ohclv_data = np.array(ohclv_data)
 
 	X,y,xplot,closeplot,dateplot = prepareData(ohclv_data, close, date, Trading_Day)
@@ -193,29 +175,19 @@ def main(stock_symbol,Trading_Day, classifier_choice):
 	TN = 0.0
 	FP = 0.0
 	FN = 0.0
-	NUM_ITER = 1
+	NUM_ITER = 10
 	pred_prob = []
 	true_lbls = []
 	scr_list = []
 
+	n_day = []
+	bs = []
 	for iteration in range (0, NUM_ITER):
 		Xtrain,Xtest,ytrain,ytest = train_test_split(X,y, random_state = 0)
-		#dummies, inserted by Suryo:
-		#print "Length of training set:", len(Xtrain)
-		#print "Length of test set:", len(Xtest)
 
 		if classifier_choice == 'RF':
-			#model = RandomForestClassifier(n_estimators = 100,criterion = "gini", random_state = random.randint(1,12345678))
-			model = SVC(kernel='linear', tol=0.01, max_iter=1000)
-			"""
-			scores = cross_val_score(model, Xtrain, ytrain, cv = 5)
-			print set(ytrain)
-			print "Cross Validation scores"
-			for i, score in enumerate(scores):
-				print "Validation Set {} score: {}".format(i, score)
-			"""
+			model = RandomForestClassifier(n_estimators = 100,criterion = "gini", random_state = random.randint(1,12345678))
 			model.fit(Xtrain, ytrain)
-			print('we here', stock_symbol)
 			y_pred = model.predict(Xtest)
 
 		elif classifier_choice == 'XGB':
@@ -235,24 +207,18 @@ def main(stock_symbol,Trading_Day, classifier_choice):
 			num_round = 25
 
 			"""EDIT THIS"""
-			#BRING IN THE MACHINE LEARNING SWAG RIGHT HERE
 
-			#labels_training = [x+1 for x in ytrain]
 			for i in range(0, len(ytrain)):
 				if ytrain[i] == -1:
 					ytrain[i] = 0
 
-			#xgb_train = xgb.DMatrix(training_data, labels_training)
 			xgb_train = xgb.DMatrix(training_data, ytrain)
 			xgb_test = xgb.DMatrix(test_data)
-			#model = xgb.train(param, xgb_train, num_round)
 			model = xgb.XGBClassifier()
-			#print('ok')
 			model.fit(Xtrain, ytrain)
-			#model.fit(xgb_train, xgb_test)
-			#labels_out = model.predict(xgb_test)
+
 			y_pred = model.predict(Xtest)
-			#y_pred = [x-1 for x in labels_out]
+
 			for i in range(0, len(y_pred)):
 				if y_pred[i] == 0:
 					y_pred[i] = -1
@@ -284,78 +250,16 @@ def main(stock_symbol,Trading_Day, classifier_choice):
 			ytest[i] = 0
 		if y_pred[i] == -1.0:
 			y_pred[i] = 0
-	try:
-		auc = roc_auc_score(true_lbls,pred_prob)
-		fpr, tpr, thresholds = roc_curve(true_lbls, pred_prob, pos_label=1)
-		#print(fpr)
-		#print(tpr)
-		plt.figure()
-		lw = 2
-		plt.plot(fpr, tpr, color='darkorange',
-         	lw=lw, label='ROC curve (area = %0.2f)' % auc)
-		#plt.plot(fpr, tpr, color='darkorange')
-		plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
-		plt.xlim([0.0, 1.0])
-		plt.ylim([0.0, 1.05])
-		plt.xlabel('False Positive Rate')
-		plt.ylabel('True Positive Rate')
-		plt.title(str(stock_symbol)+'-'+str(Trading_Day)+' day'+'-'+str(classifier_choice))
-		plt.legend(loc="lower right")
-		plt.savefig('rocs/'+str(stock_symbol)+'-'+str(Trading_Day)+'-'+str(classifier_choice)+'.png')
-		plt.clf()
-	except:
-		"Can't plot ROC"
-		auc = -999
 
 	b_score = brier_score_loss(ytest,y_pred)
-
-	print(stock_symbol, '&', Trading_Day, '&', accuracy, '&', recall, '&',
-			precision, '&', specificity, '&', fscore, '&', '%0.2f' % b_score,
-			'&', '%0.2f' % auc, '\\\\')
-
-	"""
-	print ""
-	print "Accuracy:",accuracy
-	print "Recall:",recall
-	print "Precision:",precision
-	print "Specificity:",specificity
-	print "F-Score:",fscore
-	"""
-	Eval.plotClassificationResult()
-	Eval.drawROC()
-	plotTradingStrategy(model,xplot,closeplot,Trading_Day,dateplot)
-	#c = raw_input("Press y to generate OOB vs Number of estimators graph:")
-	#if c == "y" or c == "Y":
-	#Eval.oob_vs_n_trees(100,Xtrain,ytrain)
-	#"""
-
-	# raw_input("Press enter to genereate OOB vs Number of estimators graph:")
-	# p.start()
-	# print "LOL"
-	# p.join()
+	print(stock_symbol, classifier_choice, Trading_Day, b_score)
+	#n_day.append(Trading_Day)
+	#bs.append(b_score)
 
 
-"""
-stock_symbol = raw_input("Enter the stock_symbol (AAPL, AMS, AMZN, FB, MSFT, NKE, SNE, TATA, TWTR, TYO): ")
-Trading_Day = input("Enter the trading window: ")
-
-classifier_choice = raw_input("Enter the classifier of choice (RF, XGB): ")
-if classifier_choice not in ['RF', 'XGB']:
-	print 'Invalid classifier.'
-	exit()
-main(stock_symbol.upper(),Trading_Day, classifier_choice.upper())
-
-"""
-#COMPANIES = ['AAPL', 'AMS', 'AMZN', 'FB', 'MSFT', 'NKE', 'SNE', 'TATA', 'TWTR', 'TYO']
-#COMPANIES = ['novartis', 'cipla', 'pfizer', 'roche']
-COMPANIES = ['AAPL']
-#COMPANIES = ['ROG', 'NOVN', 'PFE', 'CIPLA']
 TRADING_BINS = [3, 5, 10, 15, 30, 60, 90]
-CLASSIFIERS = ['RF']
-COMPANIES = ['AMZN', 'AAPL', 'AMS']
-#COMPANIES = ['AAPL', 'AMS', 'AMZN', 'FB', 'MSFT',
-#			'NKE', 'SNE', 'TATA', 'TWTR', 'TYO',
-#			'novartis', 'cipla', 'pfizer', 'roche']
+CLASSIFIERS = ['RF', 'XGB']
+COMPANIES = ['AAPL', 'FB']
 
 for classifier_choice in CLASSIFIERS:
 	print("---------------------")

@@ -134,10 +134,12 @@ class Evaluator:
 
 	def plotClassificationResult(self):
 		self.confusionMatrix()
-		x = [i + 3.0 for i in xrange(4)]
+		#x = [i + 3.0 for i in xrange(4)]
+		x = [i + 3.0 for i in range(4)]
 		xlabel = ["TP","FN","FP","TN"]
 		plt.figure()
 		plt.grid(True)
 		plt.bar(x,self.confusion_matrix.reshape(-1), color= np.random.random((4,3)))
-		plt.xticks([i + 3.0 for i in xrange(4)],xlabel)
+		#plt.xticks([i + 3.0 for i in xrange(4)],xlabel)
+		plt.xticks([i + 3.0 for i in range(4)],xlabel)
 		plt.show(block = False)

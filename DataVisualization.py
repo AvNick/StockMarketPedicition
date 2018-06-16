@@ -8,7 +8,7 @@ from sklearn.tree import export_graphviz
 from subprocess import check_call
 
 def SegragateData(X,y):
-	
+
 	n = len(y)
 	X0 = []
 	X1 = []
@@ -30,7 +30,7 @@ def ScatterPlot(X,y):
 	X0,X1 = SegragateData(X,y)
 	np.savetxt("class1.csv",X0,delimiter = ",")
 	np.savetxt("class2.csv",X1,delimiter = ",")
-	
+
 def DrawConvexHull(X,y):
 
 	ScatterPlot(X,y)
@@ -52,10 +52,3 @@ def DrawConvexHull(X,y):
 	C1 = np.c_[X_1,Y_1]
 	np.savetxt("hull1.csv",C0,delimiter = ",")
 	np.savetxt("hull2.csv",C1,delimiter = ",")
-	
-
-
-
-
-
-	

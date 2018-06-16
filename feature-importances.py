@@ -18,7 +18,7 @@ from sklearn.cross_validation import cross_val_score
 from sklearn.metrics import brier_score_loss
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import roc_curve
-from sklearn.svm import SVC
+
 import xgboost as xgb
 from xgboost.sklearn import XGBClassifier
 import random
@@ -197,6 +197,7 @@ def main(stock_symbol,Trading_Day, classifier_choice):
 	pred_prob = []
 	true_lbls = []
 	scr_list = []
+	feature_names = ['RSI', 'SO', 'W%R', 'MACD', 'PROC', 'OBV']
 
 	for iteration in range (0, NUM_ITER):
 		Xtrain,Xtest,ytrain,ytest = train_test_split(X,y, random_state = 0)
@@ -205,20 +206,27 @@ def main(stock_symbol,Trading_Day, classifier_choice):
 		#print "Length of test set:", len(Xtest)
 
 		if classifier_choice == 'RF':
-			#model = RandomForestClassifier(n_estimators = 100,criterion = "gini", random_state = random.randint(1,12345678))
-			model = SVC(kernel='linear', tol=0.01, max_iter=1000)
-			"""
-			scores = cross_val_score(model, Xtrain, ytrain, cv = 5)
-			print set(ytrain)
-			print "Cross Validation scores"
-			for i, score in enumerate(scores):
-				print "Validation Set {} score: {}".format(i, score)
-			"""
+			print('------------------------------')
+			print('RF '+ ' stock_symbol ' + str(Trading_Day))
+			model = RandomForestClassifier(n_estimators = 100,criterion = "gini", random_state = random.randint(1,12345678))
 			model.fit(Xtrain, ytrain)
-			print('we here', stock_symbol)
-			y_pred = model.predict(Xtest)
+			importances = model.feature_importances_
+			std = np.std([tree.feature_importances_ for tree in model.estimators_],
+				axis=0)
+			indices = np.argsort(importances)[::-1]
+			print(indices)
+
+			#for val in indices:
+			for val in range(0, 6):
+				#print(feature_names[r[0]], str(round((r[1]/total)*100, 2)), '%')
+				print(feature_names[val], str(round(importances[val]*100, 2)))
+				#print(feature_names[val], importances[val])
+				#print(feature_names[val], '\\\\')
 
 		elif classifier_choice == 'XGB':
+			print('------------------------------')
+			print('XGB '+ ' stock_symbol ' + str(Trading_Day))
+
 			training_data = np.matrix(Xtrain)
 			test_data = np.matrix(Xtest)
 
@@ -245,117 +253,38 @@ def main(stock_symbol,Trading_Day, classifier_choice):
 			#xgb_train = xgb.DMatrix(training_data, labels_training)
 			xgb_train = xgb.DMatrix(training_data, ytrain)
 			xgb_test = xgb.DMatrix(test_data)
-			#model = xgb.train(param, xgb_train, num_round)
-			model = xgb.XGBClassifier()
-			#print('ok')
-			model.fit(Xtrain, ytrain)
-			#model.fit(xgb_train, xgb_test)
-			#labels_out = model.predict(xgb_test)
-			y_pred = model.predict(Xtest)
-			#y_pred = [x-1 for x in labels_out]
-			for i in range(0, len(y_pred)):
-				if y_pred[i] == 0:
-					y_pred[i] = -1
 
-		Eval = Evaluator(Xtest,ytest,y_pred,model)
-		tn, fn, tp, fp = Eval.getPerformanceMetrics()
-		TN += tn
-		FN += fn
-		TP += tp
-		FP += fp
-		#================================
-		#y_score = model.fit(Xtrain, ytrain).decision_function(test_data)
-		y_prob = model.predict_proba(Xtest)
-		#print(y_prob)
-		for i in range(len(y_prob)):
-			if ytest[i] == -1.0:
-				true_lbls.append(0)
-			else:
-				true_lbls.append(1)
-			try:
-				pred_prob.append(y_prob[i][1])
-			except:
-				pred_prob.append(y_prob[i][0]) #There's an error probably due to perfect classification
-			#scr_list.append(y_score[i])
+			xgb_train = xgb.DMatrix(Xtrain, ytrain)
+			#print(Xtrain)
+			bst = xgb.train(param, xgb_train, num_round)
+			imp = bst.get_score().items()
 
-	accuracy, recall, precision, specificity, fscore = getPerformanceStats(TP, TN, FP, FN)
-	for i in range(len(ytest)):
-		if ytest[i] == -1.0:
-			ytest[i] = 0
-		if y_pred[i] == -1.0:
-			y_pred[i] = 0
-	try:
-		auc = roc_auc_score(true_lbls,pred_prob)
-		fpr, tpr, thresholds = roc_curve(true_lbls, pred_prob, pos_label=1)
-		#print(fpr)
-		#print(tpr)
-		plt.figure()
-		lw = 2
-		plt.plot(fpr, tpr, color='darkorange',
-         	lw=lw, label='ROC curve (area = %0.2f)' % auc)
-		#plt.plot(fpr, tpr, color='darkorange')
-		plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
-		plt.xlim([0.0, 1.0])
-		plt.ylim([0.0, 1.05])
-		plt.xlabel('False Positive Rate')
-		plt.ylabel('True Positive Rate')
-		plt.title(str(stock_symbol)+'-'+str(Trading_Day)+' day'+'-'+str(classifier_choice))
-		plt.legend(loc="lower right")
-		plt.savefig('rocs/'+str(stock_symbol)+'-'+str(Trading_Day)+'-'+str(classifier_choice)+'.png')
-		plt.clf()
-	except:
-		"Can't plot ROC"
-		auc = -999
+			#print(imp)
+			imp_table = []
+			for val in imp:
+				index, imp = val
+				#print(index)
+				index = int(index[1:])
+				r = [index, imp]
+				imp_table.append(r)
 
-	b_score = brier_score_loss(ytest,y_pred)
-
-	print(stock_symbol, '&', Trading_Day, '&', accuracy, '&', recall, '&',
-			precision, '&', specificity, '&', fscore, '&', '%0.2f' % b_score,
-			'&', '%0.2f' % auc, '\\\\')
-
-	"""
-	print ""
-	print "Accuracy:",accuracy
-	print "Recall:",recall
-	print "Precision:",precision
-	print "Specificity:",specificity
-	print "F-Score:",fscore
-	"""
-	Eval.plotClassificationResult()
-	Eval.drawROC()
-	plotTradingStrategy(model,xplot,closeplot,Trading_Day,dateplot)
-	#c = raw_input("Press y to generate OOB vs Number of estimators graph:")
-	#if c == "y" or c == "Y":
-	#Eval.oob_vs_n_trees(100,Xtrain,ytrain)
-	#"""
-
-	# raw_input("Press enter to genereate OOB vs Number of estimators graph:")
-	# p.start()
-	# print "LOL"
-	# p.join()
+			total = 0
+			for r in imp_table:
+				total += r[1]
 
 
-"""
-stock_symbol = raw_input("Enter the stock_symbol (AAPL, AMS, AMZN, FB, MSFT, NKE, SNE, TATA, TWTR, TYO): ")
-Trading_Day = input("Enter the trading window: ")
+			for r in imp_table:
+				print(feature_names[r[0]], str(round((r[1]/total)*100, 2)))
 
-classifier_choice = raw_input("Enter the classifier of choice (RF, XGB): ")
-if classifier_choice not in ['RF', 'XGB']:
-	print 'Invalid classifier.'
-	exit()
-main(stock_symbol.upper(),Trading_Day, classifier_choice.upper())
 
-"""
+
 #COMPANIES = ['AAPL', 'AMS', 'AMZN', 'FB', 'MSFT', 'NKE', 'SNE', 'TATA', 'TWTR', 'TYO']
 #COMPANIES = ['novartis', 'cipla', 'pfizer', 'roche']
-COMPANIES = ['AAPL']
-#COMPANIES = ['ROG', 'NOVN', 'PFE', 'CIPLA']
+COMPANIES = ['AAPL', 'FB']
+
 TRADING_BINS = [3, 5, 10, 15, 30, 60, 90]
-CLASSIFIERS = ['RF']
-COMPANIES = ['AMZN', 'AAPL', 'AMS']
-#COMPANIES = ['AAPL', 'AMS', 'AMZN', 'FB', 'MSFT',
-#			'NKE', 'SNE', 'TATA', 'TWTR', 'TYO',
-#			'novartis', 'cipla', 'pfizer', 'roche']
+#CLASSIFIERS = ['RF', 'XGB']
+CLASSIFIERS = ['XGB']
 
 for classifier_choice in CLASSIFIERS:
 	print("---------------------")

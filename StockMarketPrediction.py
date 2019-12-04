@@ -200,9 +200,10 @@ def main(stock_symbol,Trading_Day, classifier_choice):
 
 	for iteration in range (0, NUM_ITER):
 		Xtrain,Xtest,ytrain,ytest = train_test_split(X,y, random_state = 0)
-		#dummies, inserted by Suryo:
-		#print "Length of training set:", len(Xtrain)
-		#print "Length of test set:", len(Xtest)
+		#You can not use "train_test_split" function with shufle! It creates forward looking bias and that is why your model's performance is high.
+		#The work can not be implemented for any trading strategies!
+		
+	
 
 		if classifier_choice == 'RF':
 			#model = RandomForestClassifier(n_estimators = 100,criterion = "gini", random_state = random.randint(1,12345678))
